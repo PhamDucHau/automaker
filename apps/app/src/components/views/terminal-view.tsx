@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Terminal as TerminalIcon,
   Plus,
@@ -141,8 +141,11 @@ export function TerminalView() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [dragOverTabId, setDragOverTabId] = useState<string | null>(null);
+  const lastCreateTimeRef = useRef<number>(0);
+  const isCreatingRef = useRef<boolean>(false);
 
   const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3008";
+  const CREATE_COOLDOWN_MS = 500; // Prevent rapid terminal creation
 
   // Get active tab
   const activeTab = terminalState.tabs.find(t => t.id === terminalState.activeTabId);
@@ -260,6 +263,15 @@ export function TerminalView() {
   // Create a new terminal session
   // targetSessionId: the terminal to split (if splitting an existing terminal)
   const createTerminal = async (direction?: "horizontal" | "vertical", targetSessionId?: string) => {
+    // Debounce: prevent rapid terminal creation
+    const now = Date.now();
+    if (now - lastCreateTimeRef.current < CREATE_COOLDOWN_MS || isCreatingRef.current) {
+      console.log("[Terminal] Debounced terminal creation");
+      return;
+    }
+    lastCreateTimeRef.current = now;
+    isCreatingRef.current = true;
+
     try {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
@@ -286,6 +298,8 @@ export function TerminalView() {
       }
     } catch (err) {
       console.error("[Terminal] Create session error:", err);
+    } finally {
+      isCreatingRef.current = false;
     }
   };
 
