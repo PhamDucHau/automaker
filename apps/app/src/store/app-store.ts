@@ -1120,10 +1120,9 @@ export const useAppStore = create<AppState & AppActions>()(
 
       resetAIProfiles: () => {
         // Merge: keep user-created profiles, but refresh all built-in profiles to latest defaults
-        const currentProfiles = get().aiProfiles;
-        const userProfiles = currentProfiles.filter((p) => !p.isBuiltIn);
-        const mergedProfiles = [...DEFAULT_AI_PROFILES, ...userProfiles];
-        set({ aiProfiles: mergedProfiles });
+        const defaultProfileIds = new Set(DEFAULT_AI_PROFILES.map(p => p.id));
+        const userProfiles = get().aiProfiles.filter(p => !p.isBuiltIn && !defaultProfileIds.has(p.id));
+        set({ aiProfiles: [...DEFAULT_AI_PROFILES, ...userProfiles] });
       },
 
       // Project Analysis actions
