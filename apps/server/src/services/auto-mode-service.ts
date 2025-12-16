@@ -839,18 +839,67 @@ Format your response as a structured markdown document.`;
 
   // Private helpers
 
+  /**
+   * Find an existing worktree for a given branch by checking git worktree list
+   */
+  private async findExistingWorktreeForBranch(
+    projectPath: string,
+    branchName: string
+  ): Promise<string | null> {
+    try {
+      const { stdout } = await execAsync("git worktree list --porcelain", {
+        cwd: projectPath,
+      });
+
+      const lines = stdout.split("\n");
+      let currentPath: string | null = null;
+      let currentBranch: string | null = null;
+
+      for (const line of lines) {
+        if (line.startsWith("worktree ")) {
+          currentPath = line.slice(9);
+        } else if (line.startsWith("branch ")) {
+          currentBranch = line.slice(7).replace("refs/heads/", "");
+        } else if (line === "" && currentPath && currentBranch) {
+          // End of a worktree entry
+          if (currentBranch === branchName) {
+            return currentPath;
+          }
+          currentPath = null;
+          currentBranch = null;
+        }
+      }
+
+      // Check the last entry (if file doesn't end with newline)
+      if (currentPath && currentBranch && currentBranch === branchName) {
+        return currentPath;
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   private async setupWorktree(
     projectPath: string,
     featureId: string,
     branchName: string
   ): Promise<string> {
+    // First, check if git already has a worktree for this branch (anywhere)
+    const existingWorktree = await this.findExistingWorktreeForBranch(projectPath, branchName);
+    if (existingWorktree) {
+      console.log(`[AutoMode] Found existing worktree for branch "${branchName}" at: ${existingWorktree}`);
+      return existingWorktree;
+    }
+
     // Git worktrees stay in project directory
     const worktreesDir = path.join(projectPath, ".worktrees");
     const worktreePath = path.join(worktreesDir, featureId);
 
     await fs.mkdir(worktreesDir, { recursive: true });
 
-    // Check if worktree already exists
+    // Check if worktree directory already exists (might not be linked to branch)
     try {
       await fs.access(worktreePath);
       return worktreePath;

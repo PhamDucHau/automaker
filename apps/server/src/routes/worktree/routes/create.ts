@@ -1,16 +1,63 @@
 /**
  * POST /create endpoint - Create a new git worktree
+ *
+ * This endpoint handles worktree creation with proper checks:
+ * 1. First checks if git already has a worktree for the branch (anywhere)
+ * 2. If found, returns the existing worktree (no error)
+ * 3. Only creates a new worktree if none exists for the branch
  */
 
 import type { Request, Response } from "express";
 import { exec } from "child_process";
 import { promisify } from "util";
 import path from "path";
-import { mkdir, access } from "fs/promises";
+import { mkdir } from "fs/promises";
 import { isGitRepo, getErrorMessage, logError, normalizePath } from "../common.js";
 import { trackBranch } from "./branch-tracking.js";
 
 const execAsync = promisify(exec);
+
+/**
+ * Find an existing worktree for a given branch by checking git worktree list
+ */
+async function findExistingWorktreeForBranch(
+  projectPath: string,
+  branchName: string
+): Promise<{ path: string; branch: string } | null> {
+  try {
+    const { stdout } = await execAsync("git worktree list --porcelain", {
+      cwd: projectPath,
+    });
+
+    const lines = stdout.split("\n");
+    let currentPath: string | null = null;
+    let currentBranch: string | null = null;
+
+    for (const line of lines) {
+      if (line.startsWith("worktree ")) {
+        currentPath = line.slice(9);
+      } else if (line.startsWith("branch ")) {
+        currentBranch = line.slice(7).replace("refs/heads/", "");
+      } else if (line === "" && currentPath && currentBranch) {
+        // End of a worktree entry
+        if (currentBranch === branchName) {
+          return { path: currentPath, branch: currentBranch };
+        }
+        currentPath = null;
+        currentBranch = null;
+      }
+    }
+
+    // Check the last entry (if file doesn't end with newline)
+    if (currentPath && currentBranch && currentBranch === branchName) {
+      return { path: currentPath, branch: currentBranch };
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 export function createCreateHandler() {
   return async (req: Request, res: Response): Promise<void> => {
@@ -37,6 +84,27 @@ export function createCreateHandler() {
         return;
       }
 
+      // First, check if git already has a worktree for this branch (anywhere)
+      const existingWorktree = await findExistingWorktreeForBranch(projectPath, branchName);
+      if (existingWorktree) {
+        // Worktree already exists, return it as success (not an error)
+        // This handles manually created worktrees or worktrees from previous runs
+        console.log(`[Worktree] Found existing worktree for branch "${branchName}" at: ${existingWorktree.path}`);
+
+        // Track the branch so it persists in the UI
+        await trackBranch(projectPath, branchName);
+
+        res.json({
+          success: true,
+          worktree: {
+            path: normalizePath(existingWorktree.path),
+            branch: branchName,
+            isNew: false, // Not newly created
+          },
+        });
+        return;
+      }
+
       // Sanitize branch name for directory usage
       const sanitizedName = branchName.replace(/[^a-zA-Z0-9_-]/g, "-");
       const worktreesDir = path.join(projectPath, ".worktrees");
@@ -44,19 +112,6 @@ export function createCreateHandler() {
 
       // Create worktrees directory if it doesn't exist
       await mkdir(worktreesDir, { recursive: true });
-
-      // Check if worktree already exists
-      try {
-        await access(worktreePath);
-        // Worktree already exists, return error
-        res.status(400).json({
-          success: false,
-          error: `Worktree "${branchName}" already exists`,
-        });
-        return;
-      } catch {
-        // Worktree doesn't exist, good to proceed
-      }
 
       // Check if branch exists
       let branchExists = false;
