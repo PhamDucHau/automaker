@@ -58,13 +58,13 @@ export const TOOL_PRESETS = {
  */
 export const MAX_TURNS = {
   /** Quick operations that shouldn't need many iterations */
-  quick: 5,
+  quick: 50,
 
   /** Standard operations */
-  standard: 20,
+  standard: 100,
 
   /** Long-running operations like full spec generation */
-  extended: 50,
+  extended: 250,
 
   /** Very long operations that may require extensive exploration */
   maximum: 1000,
@@ -143,6 +143,12 @@ export interface CreateSdkOptionsConfig {
 
   /** Optional abort controller for cancellation */
   abortController?: AbortController;
+
+  /** Optional output format for structured outputs */
+  outputFormat?: {
+    type: "json_schema";
+    schema: Record<string, unknown>;
+  };
 }
 
 /**
@@ -194,7 +200,7 @@ export function createFeatureGenerationOptions(
  *
  * Configuration:
  * - Uses read-only tools for analysis
- * - Quick turns for focused suggestions
+ * - Standard turns to allow thorough codebase exploration and structured output generation
  * - Opus model by default for thorough analysis
  */
 export function createSuggestionsOptions(
@@ -203,11 +209,12 @@ export function createSuggestionsOptions(
   return {
     ...getBaseOptions(),
     model: getModelForUseCase("suggestions", config.model),
-    maxTurns: MAX_TURNS.quick,
+    maxTurns: MAX_TURNS.extended, // Increased from quick (5) to standard (20) to allow codebase exploration + structured output
     cwd: config.cwd,
     allowedTools: [...TOOL_PRESETS.readOnly],
     ...(config.systemPrompt && { systemPrompt: config.systemPrompt }),
     ...(config.abortController && { abortController: config.abortController }),
+    ...(config.outputFormat && { outputFormat: config.outputFormat }),
   };
 }
 
