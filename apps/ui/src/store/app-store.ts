@@ -494,6 +494,7 @@ export interface AppState {
 
   defaultPlanningMode: PlanningMode;
   defaultRequirePlanApproval: boolean;
+  defaultAIProfileId: string | null;
 
   // Plan Approval State
   // When a plan requires user approval, this holds the pending approval details
@@ -742,6 +743,7 @@ export interface AppActions {
 
   setDefaultPlanningMode: (mode: PlanningMode) => void;
   setDefaultRequirePlanApproval: (require: boolean) => void;
+  setDefaultAIProfileId: (profileId: string | null) => void;
 
   // Plan Approval actions
   setPendingPlanApproval: (approval: {
@@ -841,6 +843,7 @@ const initialState: AppState = {
   specCreatingForProject: null,
   defaultPlanningMode: 'skip' as PlanningMode,
   defaultRequirePlanApproval: false,
+  defaultAIProfileId: null,
   pendingPlanApproval: null,
 };
 
@@ -2265,6 +2268,7 @@ export const useAppStore = create<AppState & AppActions>()(
 
       setDefaultPlanningMode: (mode) => set({ defaultPlanningMode: mode }),
       setDefaultRequirePlanApproval: (require) => set({ defaultRequirePlanApproval: require }),
+      setDefaultAIProfileId: (profileId) => set({ defaultAIProfileId: profileId }),
 
       // Plan Approval actions
       setPendingPlanApproval: (approval) => set({ pendingPlanApproval: approval }),
@@ -2340,6 +2344,7 @@ export const useAppStore = create<AppState & AppActions>()(
         boardBackgroundByProject: state.boardBackgroundByProject,
         defaultPlanningMode: state.defaultPlanningMode,
         defaultRequirePlanApproval: state.defaultRequirePlanApproval,
+        defaultAIProfileId: state.defaultAIProfileId,
       }),
     }
   )
