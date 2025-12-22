@@ -1,6 +1,165 @@
 import { Page } from '@playwright/test';
 
 /**
+ * Store version constants - centralized to avoid hardcoding across tests
+ * These MUST match the versions used in the actual stores
+ */
+const STORE_VERSIONS = {
+  APP_STORE: 2, // Must match app-store.ts persist version
+  SETUP_STORE: 0, // setup-store.ts doesn't specify a version, so zustand defaults to 0
+} as const;
+
+/**
+ * Project interface for test setup
+ */
+export interface TestProject {
+  id: string;
+  name: string;
+  path: string;
+  lastOpened?: string;
+}
+
+/**
+ * Options for setting up the welcome view
+ */
+export interface WelcomeViewSetupOptions {
+  /** Directory path to pre-configure as the workspace directory */
+  workspaceDir?: string;
+  /** Recent projects to show (but not as current project) */
+  recentProjects?: TestProject[];
+}
+
+/**
+ * Set up localStorage to show the welcome view with no current project
+ * This is the cleanest way to test project creation flows
+ *
+ * @param page - Playwright page
+ * @param options - Configuration options
+ */
+export async function setupWelcomeView(
+  page: Page,
+  options?: WelcomeViewSetupOptions
+): Promise<void> {
+  await page.addInitScript(
+    ({
+      opts,
+      versions,
+    }: {
+      opts: WelcomeViewSetupOptions | undefined;
+      versions: typeof STORE_VERSIONS;
+    }) => {
+      // Set up empty app state (no current project) - shows welcome view
+      const appState = {
+        state: {
+          projects: opts?.recentProjects || [],
+          currentProject: null,
+          currentView: 'welcome',
+          theme: 'dark',
+          sidebarOpen: true,
+          apiKeys: { anthropic: '', google: '' },
+          chatSessions: [],
+          chatHistoryOpen: false,
+          maxConcurrency: 3,
+        },
+        version: versions.APP_STORE,
+      };
+      localStorage.setItem('automaker-storage', JSON.stringify(appState));
+
+      // Mark setup as complete to skip the setup wizard
+      const setupState = {
+        state: {
+          isFirstRun: false,
+          setupComplete: true,
+          skipClaudeSetup: false,
+        },
+        version: versions.SETUP_STORE,
+      };
+      localStorage.setItem('automaker-setup', JSON.stringify(setupState));
+
+      // Set workspace directory if provided
+      if (opts?.workspaceDir) {
+        localStorage.setItem('automaker:lastProjectDir', opts.workspaceDir);
+      }
+    },
+    { opts: options, versions: STORE_VERSIONS }
+  );
+}
+
+/**
+ * Set up localStorage with a project at a real filesystem path
+ * Use this when testing with actual files on disk
+ *
+ * @param page - Playwright page
+ * @param projectPath - Absolute path to the project directory
+ * @param projectName - Display name for the project
+ * @param options - Additional options
+ */
+export async function setupRealProject(
+  page: Page,
+  projectPath: string,
+  projectName: string,
+  options?: {
+    /** Set as current project (opens board view) or just add to recent projects */
+    setAsCurrent?: boolean;
+    /** Additional recent projects to include */
+    additionalProjects?: TestProject[];
+  }
+): Promise<void> {
+  await page.addInitScript(
+    ({
+      path,
+      name,
+      opts,
+      versions,
+    }: {
+      path: string;
+      name: string;
+      opts: typeof options;
+      versions: typeof STORE_VERSIONS;
+    }) => {
+      const projectId = `project-${Date.now()}`;
+      const project: TestProject = {
+        id: projectId,
+        name: name,
+        path: path,
+        lastOpened: new Date().toISOString(),
+      };
+
+      const allProjects = [project, ...(opts?.additionalProjects || [])];
+      const currentProject = opts?.setAsCurrent !== false ? project : null;
+
+      const appState = {
+        state: {
+          projects: allProjects,
+          currentProject: currentProject,
+          currentView: currentProject ? 'board' : 'welcome',
+          theme: 'dark',
+          sidebarOpen: true,
+          apiKeys: { anthropic: '', google: '' },
+          chatSessions: [],
+          chatHistoryOpen: false,
+          maxConcurrency: 3,
+        },
+        version: versions.APP_STORE,
+      };
+      localStorage.setItem('automaker-storage', JSON.stringify(appState));
+
+      // Mark setup as complete
+      const setupState = {
+        state: {
+          isFirstRun: false,
+          setupComplete: true,
+          skipClaudeSetup: false,
+        },
+        version: versions.SETUP_STORE,
+      };
+      localStorage.setItem('automaker-setup', JSON.stringify(setupState));
+    },
+    { path: projectPath, name: projectName, opts: options, versions: STORE_VERSIONS }
+  );
+}
+
+/**
  * Set up a mock project in localStorage to bypass the welcome screen
  * This simulates having opened a project before
  */
@@ -595,7 +754,7 @@ export async function setupFirstRun(page: Page): Promise<void> {
  * Set up the app to skip the setup wizard (setup already complete)
  */
 export async function setupComplete(page: Page): Promise<void> {
-  await page.addInitScript(() => {
+  await page.addInitScript((versions: typeof STORE_VERSIONS) => {
     // Mark setup as complete
     const setupState = {
       state: {
@@ -604,11 +763,11 @@ export async function setupComplete(page: Page): Promise<void> {
         currentStep: 'complete',
         skipClaudeSetup: false,
       },
-      version: 2, // Must match app-store.ts persist version
+      version: versions.SETUP_STORE,
     };
 
     localStorage.setItem('automaker-setup', JSON.stringify(setupState));
-  });
+  }, STORE_VERSIONS);
 }
 
 /**
