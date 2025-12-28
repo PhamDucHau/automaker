@@ -130,9 +130,9 @@ export function MCPServersSection() {
             connectionTime: result.connectionTime,
           },
         }));
-        // Auto-expand to show tools
-        setExpandedServers((prev) => new Set([...prev, server.id]));
+        // Only auto-expand on manual test, not on auto-test (silent)
         if (!silent) {
+          setExpandedServers((prev) => new Set([...prev, server.id]));
           toast.success(
             `Connected to ${server.name} (${result.tools?.length || 0} tools, ${result.connectionTime}ms)`
           );
