@@ -111,7 +111,7 @@ export const KanbanCard = memo(function KanbanCard({
   const cardStyle = getCardBorderStyle(cardBorderEnabled, cardBorderOpacity);
 
   const wrapperClasses = cn(
-    'relative select-none outline-none touch-none',
+    'relative select-none outline-none touch-none transition-transform duration-200 ease-out',
     getCursorClass(isOverlay, isDraggable),
     isOverlay && isLifted && 'scale-105 rotate-1 z-50'
   );
