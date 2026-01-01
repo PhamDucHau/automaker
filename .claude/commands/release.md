@@ -34,10 +34,31 @@ This command accepts a version bump type as input:
      - Injects the version into the app via Vite's `__APP_VERSION__` constant
      - Displays the version below the logo in the sidebar
 
-4. **Verify the release**
+4. **Commit the version bump**
+   - Stage the updated package.json files:
+     ```bash
+     git add apps/ui/package.json apps/server/package.json
+     ```
+   - Commit with a release message:
+     ```bash
+     git commit -m "chore: release v<version>"
+     ```
+
+5. **Create and push the git tag**
+   - Create an annotated tag for the release:
+     ```bash
+     git tag -a v<version> -m "Release v<version>"
+     ```
+   - Push the commit and tag to remote:
+     ```bash
+     git push && git push --tags
+     ```
+
+6. **Verify the release**
    - Check that the build completed successfully
    - Confirm the version appears correctly in the built artifacts
    - The version will be displayed in the app UI below the logo
+   - Verify the tag is visible on the remote repository
 
 ## Version Centralization
 
