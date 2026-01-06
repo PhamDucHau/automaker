@@ -7,6 +7,8 @@ interface UseCliStatusOptions {
   setCliStatus: (status: any) => void;
   setAuthStatus: (status: any) => void;
 }
+
+// Create logger once outside the hook to prevent infinite re-renders
 const logger = createLogger('CliStatus');
 
 export function useCliStatus({
@@ -66,7 +68,7 @@ export function useCliStatus({
     } finally {
       setIsChecking(false);
     }
-  }, [cliType, statusApi, setCliStatus, setAuthStatus, logger]);
+  }, [cliType, statusApi, setCliStatus, setAuthStatus]);
 
   return { isChecking, checkStatus };
 }
