@@ -171,7 +171,7 @@ export function SettingsNavigation({
   return (
     <nav
       className={cn(
-        'hidden lg:block w-52 shrink-0 overflow-y-auto',
+        'hidden lg:block w-64 shrink-0 overflow-y-auto',
         'border-r border-border/50',
         'bg-gradient-to-b from-card/80 via-card/60 to-card/40 backdrop-blur-xl'
       )}
